@@ -11,10 +11,10 @@ interface Character {
 }
 
 const elements = {
-    resultsList: getElementOrThrow<HTMLUListElement>('results'),
-    searchInput: getElementOrThrow<HTMLButtonElement>('searchInput'),
-    searchButton: getElementOrThrow<HTMLButtonElement>('searchButton'),
-    loader: getElementOrThrow<HTMLElement>('loader'),
+    resultsList: getElementOrThrow<HTMLUListElement>('results', HTMLUListElement),
+    searchInput: getElementOrThrow<HTMLInputElement>('searchInput', HTMLInputElement),
+    searchButton: getElementOrThrow<HTMLButtonElement>('searchButton', HTMLButtonElement),
+    loader: getElementOrThrow<HTMLElement>('loader', HTMLElement),
 }
 
 function initializeElements() {
@@ -23,19 +23,29 @@ function initializeElements() {
     }
 }
 
-function getElementOrThrow<Type>(id: string): Type {
-    const element = document.getElementById(id) as Type;
-    if (!element) {
-        throw new Error(`Element with id "${id}" not found.`);
+function getElementOrThrow<T extends HTMLElement>(elementId: string, elementType: new () => T): T {
+    const element = document.getElementById(elementId);
+
+    if (!element || !(element instanceof elementType)) {
+        throw new Error(`Element with id "${elementId}" not found.`);
     }
+
     return element;
 }
 
-async function fetchCharacters(): Promise<Character[]> {
-    const response = await fetch('http://localhost:3000/personajes');
+
+async function fetchCharacters(searchTerm?: string): Promise<Character[]> {
+    let url = 'http://localhost:3000/personajes';
+    
+    if (searchTerm) {
+        url += `?nombre_like=^${searchTerm.toLowerCase()}`;
+    }
+
+    const response = await fetch(url);
     const characters: Character[] = await response.json();
     return characters;
 }
+
 
 function displayCharacters(characters: Character[]) {
     const elements = initializeElements();
@@ -77,21 +87,15 @@ function createCharacterName(card: HTMLLIElement, character: Character) {
     card.appendChild(name);
 }
 
-function filterCharacters(characters: Character[], searchTerm: string): Character[] {
-    return characters.filter(character =>
-        character.nombre.toLowerCase().startsWith(searchTerm.toLowerCase())
-    );
-}
-
-function handleSearchButtonClick(characters: Character[], searchButton: HTMLButtonElement) {
-    searchButton.addEventListener('click', () => {
+function handleSearchButtonClick(searchButton: HTMLButtonElement) {
+    searchButton.addEventListener('click', async () => {
         const searchTerm = elements.searchInput.value.toLowerCase();
-        const filteredCharacters = filterCharacters(characters, searchTerm);
+        const filteredCharacters = await fetchCharacters(searchTerm);
 
         const resultsList = document.getElementById('results') as HTMLUListElement;
         resultsList.innerHTML = '';
 
-        displayCharacters(filteredCharacters);
+        displayCharacters(filteredCharacters); 
     });
 }
 
@@ -114,7 +118,7 @@ async function initApp() {
         toggleLoader(elements.loader, false);
     }
 
-    handleSearchButtonClick(characters, elements.searchButton);
+    handleSearchButtonClick(elements.searchButton);
 }
 
 initApp();
